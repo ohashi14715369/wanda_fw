@@ -1,5 +1,5 @@
 import colors from 'vuetify/es5/util/colors';
-import ip from 'ip';
+import os from 'os';
 
 export default {
   // Global page headers: https://go.nuxtjs.dev/config-head
@@ -42,7 +42,11 @@ export default {
     sockets: [
       {
         name: 'main',
-        url: 'http://' + ip.address() + ':3001',
+        url:
+          'http://' +
+          (process.env.HOSTNAME || os.hostname()) +
+          ':' +
+          process.env.SOCKET_IO_PORT,
       },
     ],
   },
@@ -69,8 +73,13 @@ export default {
   // Build Configuration: https://go.nuxtjs.dev/config-build
   build: {},
 
-  serverMiddleware: ['~/server'],
+  serverMiddleware: ['~/server', '~/socket'],
   server: {
     host: '0',
+  },
+  publicRuntimeConfig: {
+    hostname: process.env.HOSTNAME || os.hostname(),
+    nuxtPort: process.env.NUXT_PORT || 3000,
+    socketIoPort: process.env.SOCKET_IO_PORT || 3001,
   },
 };
