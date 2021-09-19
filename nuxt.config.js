@@ -38,15 +38,9 @@ export default {
   // Modules: https://go.nuxtjs.dev/config-modules
   modules: ['nuxt-socket-io'],
   io: {
-    // module options
     sockets: [
       {
         name: 'main',
-        url:
-          'http://' +
-          (process.env.HOSTNAME || os.hostname()) +
-          ':' +
-          process.env.SOCKET_IO_PORT,
       },
     ],
   },
@@ -73,7 +67,7 @@ export default {
   // Build Configuration: https://go.nuxtjs.dev/config-build
   build: {},
 
-  serverMiddleware: ['~/server', '~/socket'],
+  serverMiddleware: ['~/server'],
   server: {
     host: '0',
   },

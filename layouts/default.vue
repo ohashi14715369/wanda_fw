@@ -28,8 +28,8 @@ export default {
       items: [
         {
           icon: 'mdi-apps',
-          title: 'Welcome',
-          to: '/',
+          title: 'room',
+          to: '/room',
         },
       ],
       title: 'Wanda Framework',
