@@ -36,7 +36,7 @@ export default {
   ],
 
   // Modules: https://go.nuxtjs.dev/config-modules
-  modules: ['nuxt-socket-io'],
+  modules: ['cookie-universal-nuxt', 'nuxt-socket-io'],
   io: {
     sockets: [
       {

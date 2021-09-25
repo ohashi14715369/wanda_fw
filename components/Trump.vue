@@ -53,8 +53,8 @@ export default Vue.extend({
   padding: 0.5em;
   color: black;
   border-radius: 5px;
-  width: 80px;
-  height: 120px;
+  width: 40px;
+  height: 60px;
   &.redSuit {
     color: red;
   }

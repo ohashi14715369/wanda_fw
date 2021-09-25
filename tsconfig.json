@@ -26,7 +26,8 @@
     "types": [
       "@nuxt/types",
       "@types/node",
-      "nuxt-socket-io"
+      "nuxt-socket-io",
+      "cookie-universal-nuxt",
     ]
   },
   "exclude": [

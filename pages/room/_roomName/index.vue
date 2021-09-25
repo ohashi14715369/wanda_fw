@@ -3,16 +3,16 @@
     <v-container v-if="isApiReady">
       <v-row>
         <v-col>
-          <h1>table</h1>
+          <h1>テーブル</h1>
+          <v-btn @click="reset">リセット</v-btn>
           <v-row>
             <v-col>
-              <h3>deck</h3>
+              <h3>デッキ</h3>
               <div>{{ deckCount }}</div>
-              <v-btn @click="draw">draw</v-btn>
-              <v-btn @click="reset">reset</v-btn>
+              <v-btn @click="draw">カードを引く</v-btn>
             </v-col>
             <v-col @click="() => deal('DISCARD')">
-              <h3>discard</h3>
+              <h3>捨て札</h3>
               <selectable-bundle
                 v-if="discard"
                 v-model="selectedBundle"
@@ -29,14 +29,16 @@
       </v-row>
       <v-row>
         <v-col>
-          <h3>players</h3>
+          <h3>プレイヤー</h3>
           <template v-for="playerId in playerIdList">
-            <v-card v-if="playerId in hands" :key="playerId">
-              <v-card-title>{{ playerId }}</v-card-title>
+            <v-card :key="playerId">
+              <v-card-title>{{
+                players.find(player => player.playerId === playerId).displayName
+              }}</v-card-title>
               <v-card-text>
-                <v-row>
+                <v-row v-if="playerId in hands">
                   <v-col>
-                    <h5 @click="() => deal(hands[playerId].id)">in hands</h5>
+                    <h5 @click="() => deal(hands[playerId].id)">手札</h5>
                     <selectable-bundle
                       v-model="selectedBundle"
                       :items="handIndices(playerId)"
@@ -57,7 +59,7 @@
                   </v-col>
                   <v-col>
                     <h5 @click="() => deal(openHands[playerId].id)">
-                      open hands
+                      公開
                     </h5>
                     <selectable-bundle
                       v-model="selectedBundle"
@@ -86,6 +88,9 @@
         </v-col>
       </v-row>
     </v-container>
+    <debug-view>
+      <pre>{{ JSON.stringify({ player, room, table }, null, 2) }}</pre>
+    </debug-view>
   </div>
 </template>
 
@@ -97,6 +102,8 @@ import SelectableBundle, {
   SelectedBundle,
 } from '~/components/SelectableBundle.vue';
 import { DomainData, searchDomainData } from '~/lib/wanda/domain';
+import randomstring from 'randomstring';
+import { PlayerInfo, Room, Table } from '~/server/io/card';
 export default Vue.extend({
   components: { SelectableBundle },
   data(): {
@@ -115,6 +122,11 @@ export default Vue.extend({
       },
     };
   },
+  asyncData({ app }) {
+    if (!app.$cookies.get('accessToken')) {
+      app.$cookies.set('accessToken', randomstring.generate());
+    }
+  },
   mounted() {
     this.connect();
   },
@@ -122,8 +134,23 @@ export default Vue.extend({
     isApiReady(): boolean {
       return this.ioApi.ready;
     },
+    isPlayerReady(): boolean {
+      return !!this.ioData.player?.playerId;
+    },
+    player(): PlayerInfo {
+      return this.ioData.player;
+    },
+    room(): Room {
+      return this.ioData.room;
+    },
+    table(): Table {
+      return this.ioData.table;
+    },
+    players(): PlayerInfo[] {
+      return this.ioData.room.players;
+    },
     selfPlayerId(): string | null {
-      return this.socket ? this.socket.id : null;
+      return this.player ? this.player.playerId : null;
     },
     roomName(): string {
       return this.$route.params.roomName;
@@ -139,7 +166,7 @@ export default Vue.extend({
       if (!this.isApiReady) {
         return [];
       }
-      return this.ioData.room.playerIdList;
+      return this.ioData.room.players?.map((player: any) => player.playerId);
     },
     hands(): { [playerId: string]: DomainData } {
       const hands = this.playerIdList
@@ -180,6 +207,14 @@ export default Vue.extend({
   },
   watch: {
     isApiReady(newValue) {
+      if (newValue) {
+        this.ioApi.joinPlayer({
+          displayName: localStorage.getItem('registeredName'),
+          accessToken: this.$cookies.get('accessToken'),
+        });
+      }
+    },
+    isPlayerReady(newValue) {
       if (newValue) {
         this.ioApi.joinRoom({ roomName: this.$route.params.roomName });
       }

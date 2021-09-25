@@ -65,18 +65,18 @@ export default Vue.extend({
 <style lang="scss">
 .selectable-bundle {
   position: relative;
-  height: 150px;
-  padding: 1em;
+  height: 85px;
+  padding: 10px;
   .bundleItem {
     position: absolute;
-    bottom: 0;
+    bottom: 10px;
     @for $i from 0 to 100 {
       &:nth-child(#{$i}) {
-        left: calc(30px * #{$i});
+        left: calc(30px * #{$i - 1});
       }
     }
     &.selected {
-      bottom: 1em;
+      bottom: 15px;
       box-shadow: 0px 0px 10px red;
     }
   }

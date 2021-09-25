@@ -10,12 +10,14 @@
     "test": "jest"
   },
   "dependencies": {
+    "cookie-universal-nuxt": "^2.1.5",
     "core-js": "^3.15.1",
     "express": "^4.17.1",
     "express-automatic-routes": "^1.1.0",
     "lodash": "^4.17.21",
     "nuxt": "^2.15.7",
     "nuxt-socket-io": "^1.1.23",
+    "randomstring": "^1.2.1",
     "socket.io": "^4.1.3",
     "vuetify": "^2.5.5"
   },
@@ -25,6 +27,7 @@
     "@nuxtjs/vuetify": "^1.12.1",
     "@types/ip": "^1.1.0",
     "@types/lodash": "^4.14.173",
+    "@types/randomstring": "^1.1.7",
     "@vue/test-utils": "^1.2.1",
     "babel-core": "7.0.0-bridge.0",
     "babel-jest": "^27.0.5",

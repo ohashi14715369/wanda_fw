@@ -6,12 +6,13 @@ import {
 } from '../../lib/wanda/domain';
 import { Component } from '../../lib/wanda/component';
 import _ from 'lodash';
+import randomstring from 'randomstring';
 
 const API = {
   version: 1,
   evts: {
     rooms: {
-      data: [],
+      data: { list: [] },
     },
     room: {
       data: {
@@ -21,8 +22,15 @@ const API = {
     table: {
       data: {},
     },
+    player: {
+      data: {},
+    },
   },
   methods: {
+    getRooms: {},
+    joinPlayer: {
+      msg: { displayName: '', accessToken: '' },
+    },
     joinRoom: {
       msg: { roomName: '' },
     },
@@ -51,96 +59,180 @@ interface Card extends Component {
 interface CardBundle extends Domain {
   components: Card[];
 }
-interface Table extends Domain {
+export interface Table extends Domain {
   children: CardBundle[];
 }
+
 interface Player {
-  id: string;
+  playerId: string;
+  displayName: string;
+  accessToken: string;
+  socketId: string | null;
 }
 
+export interface PlayerInfo {
+  playerId: string;
+  displayName: string;
+}
+
+export interface Room {
+  name: string;
+  players: PlayerInfo[];
+}
+
+const players: Player[] = [];
+const rooms: Room[] = [];
 const tables: {
   [roomName: string]: Table;
 } = {};
+console.log('initialized card');
 
 export default function(socket: Socket, io: Server) {
   const namespace = io.of('/card');
-  const { id: playerId } = socket;
-  function existsRoom(roomName: string) {
-    return namespace.adapter.rooms.has(roomName);
-  }
-  function getRoomInfo(roomName: string) {
-    return existsRoom(roomName)
-      ? {
-          name: roomName,
-          playerIdList: Array.from(namespace.adapter.rooms.get(roomName)!),
-        }
-      : null;
-  }
-  function getDefaultRoomName(): string {
-    const roomNameSet = namespace.adapter.sids.get(socket.id);
-    if (!roomNameSet) {
-      throw new Error('Not joined room');
+  const { id: socketId } = socket;
+  function getOrGenerateRoom(roomName: string): Room {
+    const find = getRoomInfo(roomName);
+    const room = find || {
+      name: roomName,
+      players: [],
+    };
+    if (!find) {
+      rooms.push(room);
     }
-    if (roomNameSet.size > 1) {
-      throw new Error('Multiple entered rooms');
-    }
-    return roomNameSet.values().next().value;
+    return room;
+  }
+
+  function getRoomInfo(roomName: string): Room | null {
+    return rooms.find(room => room.name === roomName) || null;
   }
   function syncRooms() {
-    const sids = Array.from(namespace.adapter.sids.keys());
-    const rooms = Array.from(namespace.adapter.rooms.keys());
+    console.log('syncRooms', { rooms });
     namespace.emit('rooms', {
-      data: rooms
-        .filter(name => !sids.includes(name) && !!name)
-        .map(name => ({
-          roomName: name,
-        })),
+      data: { list: rooms },
     });
   }
+  function sendToRoom(roomName: string, eventName: string, data: any) {
+    const room = getRoomInfo(roomName);
+    room?.players.forEach(player => {
+      const playerSocketId = players.find(
+        item => item.playerId === player.playerId,
+      )?.socketId;
+      if (playerSocketId) {
+        namespace.to(playerSocketId).emit(eventName, { data });
+      }
+    });
+  }
+
   function syncRoom(roomName: string) {
     const roomInfo = getRoomInfo(roomName);
-    console.log('syncRoom', { roomName, playerId, roomInfo });
-    namespace.to(roomName).emit('room', { data: roomInfo });
-    socket.emit('room', { data: roomInfo });
+    console.log('syncRoom', { roomName, socketId, roomInfo });
+    sendToRoom(roomName, 'room', roomInfo);
   }
 
   function syncTable(roomName: string) {
-    const table = tables[roomName];
-    console.log('syncTable', { roomName, playerId, table });
-    const playerIdList = getRoomInfo(roomName)!.playerIdList;
-    playerIdList.forEach(sendPlayerId => {
-      const data = convertDomainToPublicData(table, sendPlayerId);
-      namespace.sockets.get(sendPlayerId)?.emit('table', {
-        data,
-      });
+    const table = tables[roomName] || null;
+    console.log('syncTable', { roomName, socketId, table });
+    getRoomInfo(roomName)?.players.forEach(player => {
+      const playerSocketId = players.find(
+        item => item.playerId === player.playerId,
+      )?.socketId;
+      if (playerSocketId) {
+        const data = convertDomainToPublicData(table, player.playerId);
+        namespace.to(playerSocketId).emit('table', {
+          data,
+        });
+      }
     });
   }
-  syncRooms();
+  function leaveRoom({ roomName }: { roomName: string }) {
+    const player = getCurrentPlayer();
+    const room = getRoomInfo(roomName);
+    console.log('leaveRoom', { player, room });
+    if (player && room) {
+      room.players.splice(
+        room.players.findIndex(item => item.playerId === player.playerId),
+        1,
+      );
+      syncRoom(roomName);
+    }
+    socket.leave(roomName);
+  }
+  function leavePlayer() {
+    const player = players.find(player => player.socketId === socketId);
+    console.log('leavePlayer', { socketId, player });
+    if (player) {
+      player.socketId = null;
+    }
+  }
+  function getCurrentPlayer() {
+    return players.find(player => player.socketId === socketId);
+  }
+  socket.once('disconnect', () => {
+    leavePlayer();
+  });
   const self = Object.freeze({
     getAPI() {
       return API;
     },
-    joinRoom({ roomName }: { roomName: string }) {
-      console.log('joinRoom', { playerId, roomName });
-      socket.once('disconnect', () => {
-        syncRoom(roomName);
+    getRooms() {
+      syncRooms();
+    },
+    joinPlayer({
+      displayName,
+      accessToken,
+    }: {
+      displayName: string;
+      accessToken: string;
+    }) {
+      console.log('joinPlayer', { displayName, accessToken });
+      let player = players.find(player => player.accessToken === accessToken);
+      if (!player) {
+        player = {
+          playerId: randomstring.generate(),
+          displayName,
+          accessToken,
+          socketId,
+        };
+        players.push(player);
+      } else {
+        player.socketId = socketId;
+        player.displayName = displayName;
+      }
+      socket.emit('player', {
+        data: { playerId: player.playerId, displayName: player.displayName },
       });
+    },
+    leavePlayer,
+    joinRoom({ roomName }: { roomName: string }) {
+      const player = getCurrentPlayer();
+      if (!player) {
+        throw new Error('Not joined player');
+      }
+      console.log('joinRoom', { player, roomName });
       socket.join(roomName);
+      const roomInfo = getOrGenerateRoom(roomName);
+      const playerInfo = roomInfo.players.find(
+        playerInfo => playerInfo.playerId === player.playerId,
+      );
+      if (!playerInfo) {
+        roomInfo.players.push({
+          playerId: player.playerId,
+          displayName: player.displayName,
+        });
+      } else {
+        playerInfo.displayName = player.displayName;
+      }
       syncRoom(roomName);
       syncRooms();
       syncTable(roomName);
     },
-    leaveRoom({ roomName }: { roomName?: string }) {
-      console.log('leaveRoom', { playerId, roomName });
-      roomName = roomName || getDefaultRoomName();
-      socket.leave(roomName);
-      syncRoom(roomName);
-    },
+    leaveRoom,
     reset({ roomName }: { roomName: string }) {
-      roomName = roomName || getDefaultRoomName();
-      if (existsRoom(roomName)) {
-        console.log('reset', { playerId, roomName });
-        const playerIdList = getRoomInfo(roomName)!.playerIdList;
+      const player = getCurrentPlayer();
+      const room = getRoomInfo(roomName);
+      if (room && player) {
+        console.log('reset', { player, roomName });
+        const playerIdList = room.players.map(player => player.playerId);
         const deck: CardBundle = {
           id: 'DECK',
           owner: [],
@@ -196,15 +288,17 @@ export default function(socket: Socket, io: Server) {
       from: { domainId: string; componentIndex: number };
       to: { domainId: string; componentIndex: number };
     }) {
-      roomName = roomName || getDefaultRoomName();
-      if (existsRoom(roomName)) {
-        console.log('deal', { playerId, roomName, from, to });
+      const player = getCurrentPlayer();
+      const room = getRoomInfo(roomName);
+      if (room && player) {
+        console.log('deal', { player, roomName, from, to });
         const table = tables[roomName];
         if (table) {
           const toDomain = searchDomain(table, {
             domainId: to.domainId,
           });
           const fromDomain = searchDomain(table, { domainId: from.domainId });
+          console.log({ fromDomain, toDomain });
           if (
             !(
               fromDomain &&
