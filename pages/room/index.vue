@@ -49,12 +49,25 @@
     <v-row>
       <v-col>
         <v-data-table
-          :headers="[{ text: '部屋名', value: 'name' }, { value: 'join' }]"
+          :headers="[
+            { text: '部屋名', value: 'name' },
+            { text: 'プレイヤー', value: 'players' },
+            { value: 'actions' },
+          ]"
           :items="rooms"
         >
-          <template #[`item.join`]="{item}">
-            <v-btn :disabled="!registeredName" link :to="`/room/${item.name}`"
-              >入る</v-btn
+          <template #[`item.players`]="{item}">
+            {{ item.players.map(player => player.displayName).join(',') }}
+          </template>
+          <template #[`item.actions`]="{item}">
+            <v-btn
+              icon
+              v-if="item.players.every(player => !player.online)"
+              @click="() => deleteRoom(item.name)"
+              ><v-icon>mdi-delete</v-icon></v-btn
+            >
+            <v-btn icon :disabled="!registeredName" :to="`/room/${item.name}`"
+              ><v-icon>mdi-door</v-icon></v-btn
             >
           </template>
         </v-data-table>
@@ -120,6 +133,9 @@ export default Vue.extend({
     registerName() {
       localStorage.registeredName = this.inputName;
       this.registeredName = this.inputName;
+    },
+    deleteRoom(roomName: string) {
+      this.ioApi.deleteRoom({ roomName });
     },
   },
 });

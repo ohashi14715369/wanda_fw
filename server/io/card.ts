@@ -28,6 +28,9 @@ const API = {
   },
   methods: {
     getRooms: {},
+    deleteRoom: {
+      msg: { roomName: '' },
+    },
     joinPlayer: {
       msg: { displayName: '', accessToken: '' },
     },
@@ -73,6 +76,7 @@ interface Player {
 export interface PlayerInfo {
   playerId: string;
   displayName: string;
+  online: boolean;
 }
 
 export interface Room {
@@ -82,6 +86,7 @@ export interface Room {
 
 const players: Player[] = [];
 const rooms: Room[] = [];
+const roomDestroyTimers: { [roomName: string]: NodeJS.Timeout } = {};
 const tables: {
   [roomName: string]: Table;
 } = {};
@@ -106,7 +111,8 @@ export default function(socket: Socket, io: Server) {
     return rooms.find(room => room.name === roomName) || null;
   }
   function syncRooms() {
-    console.log('syncRooms', { rooms });
+    console.log('syncRooms');
+    console.dir(rooms, { depth: null });
     namespace.emit('rooms', {
       data: { list: rooms },
     });
@@ -162,6 +168,16 @@ export default function(socket: Socket, io: Server) {
     console.log('leavePlayer', { socketId, player });
     if (player) {
       player.socketId = null;
+      rooms.forEach(room => {
+        const playerInfo = room.players.find(
+          item => item.playerId === player.playerId,
+        );
+        if (playerInfo) {
+          playerInfo.online = false;
+          syncRoom(room.name);
+        }
+      });
+      syncRooms();
     }
   }
   function getCurrentPlayer() {
@@ -176,6 +192,17 @@ export default function(socket: Socket, io: Server) {
     },
     getRooms() {
       syncRooms();
+    },
+    deleteRoom({ roomName }: { roomName: string }) {
+      const room = getRoomInfo(roomName);
+      if (room && room.players.every(player => !player.online)) {
+        console.log('deleteRoom', { room });
+        rooms.splice(
+          rooms.findIndex(item => item.name === room.name),
+          1,
+        );
+        syncRooms();
+      }
     },
     joinPlayer({
       displayName,
@@ -218,9 +245,11 @@ export default function(socket: Socket, io: Server) {
         roomInfo.players.push({
           playerId: player.playerId,
           displayName: player.displayName,
+          online: true,
         });
       } else {
         playerInfo.displayName = player.displayName;
+        playerInfo.online = true;
       }
       syncRoom(roomName);
       syncRooms();
