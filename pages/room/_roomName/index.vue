@@ -1,93 +1,110 @@
 <template>
-  <div>
-    <v-container v-if="isApiReady">
-      <v-row>
-        <v-col>
-          <h1>テーブル</h1>
-          <v-btn @click="reset">リセット</v-btn>
-          <v-row>
-            <v-col>
-              <h3>デッキ</h3>
-              <div>{{ deckCount }}</div>
-              <v-btn @click="draw">カードを引く</v-btn>
-            </v-col>
-            <v-col @click="() => deal('DISCARD')">
-              <h3>捨て札</h3>
-              <selectable-bundle
-                v-if="discard"
-                v-model="selectedBundle"
-                :items="discard.components"
-                :bundleName="discard.id"
-              >
-                <template #item="{value}">
-                  <trump :suit="value.value.suit" :num="value.value.num" />
-                </template>
-              </selectable-bundle>
-            </v-col>
-          </v-row>
-        </v-col>
-      </v-row>
-      <v-row>
-        <v-col>
-          <h3>プレイヤー</h3>
-          <template v-for="playerId in playerIdList">
-            <v-card :key="playerId">
-              <v-card-title>{{
-                players.find(player => player.playerId === playerId).displayName
-              }}</v-card-title>
-              <v-card-text>
-                <v-row v-if="playerId in hands">
-                  <v-col>
-                    <h5 @click="() => deal(hands[playerId].id)">手札</h5>
-                    <selectable-bundle
-                      v-model="selectedBundle"
-                      :items="handIndices(playerId)"
-                      :bundleName="hands[playerId].id"
-                    >
-                      <template #item="{value}">
-                        <trump
-                          v-if="
-                            hands[playerId].components &&
-                              hands[playerId].components.length >= value
-                          "
-                          :suit="hands[playerId].components[value].value.suit"
-                          :num="hands[playerId].components[value].value.num"
-                        />
-                        <trump v-else />
-                      </template>
-                    </selectable-bundle>
-                  </v-col>
-                  <v-col>
-                    <h5 @click="() => deal(openHands[playerId].id)">
-                      公開
-                    </h5>
-                    <selectable-bundle
-                      v-model="selectedBundle"
-                      :items="openHandIndices(playerId)"
-                      :bundleName="openHands[playerId].id"
-                    >
-                      <template #item="{value}">
-                        <trump
-                          v-if="
-                            openHands[playerId].components &&
-                              openHands[playerId].components.length >= value
-                          "
-                          :suit="
-                            openHands[playerId].components[value].value.suit
-                          "
-                          :num="openHands[playerId].components[value].value.num"
-                        />
-                        <trump v-else />
-                      </template>
-                    </selectable-bundle>
-                  </v-col>
-                </v-row>
-              </v-card-text>
-            </v-card>
+  <div v-if="isApiReady">
+    <v-row class="pt-0">
+      <v-col>
+        <v-row>
+          <v-col>
+            <h3>デッキ</h3>
+          </v-col>
+          <v-col cols="auto">
+            <v-btn icon @click="reset"><v-icon>mdi-restart</v-icon></v-btn>
+          </v-col>
+        </v-row>
+        <v-row>
+          <v-col> {{ deckCount }}枚 </v-col>
+          <v-col cols="auto">
+            <v-btn @click="draw">ドロー</v-btn>
+          </v-col>
+        </v-row>
+      </v-col>
+      <v-col @click="() => deal('DISCARD')">
+        <h3>捨て札</h3>
+        <selectable-bundle
+          v-if="discard"
+          v-model="selectedBundle"
+          :items="discard.components"
+          :bundleName="discard.id"
+        >
+          <template #item="{value, selected}">
+            <trump
+              :suit="value.value.suit"
+              :num="value.value.num"
+              :selected="selected"
+            />
           </template>
-        </v-col>
-      </v-row>
-    </v-container>
+        </selectable-bundle>
+      </v-col>
+    </v-row>
+    <v-row>
+      <v-col class="pa-0">
+        <template v-for="playerId in playerIdList">
+          <v-card :key="playerId" rounded outlined>
+            <v-card-text class="pa-2">
+              <v-row dense>
+                <v-col cols="auto">
+                  <v-icon
+                    :class="{
+                      account: true,
+                      online: getPlayer(playerId).online,
+                    }"
+                    >mdi-account</v-icon
+                  >
+                </v-col>
+                <v-col>
+                  {{ getPlayer(playerId).displayName }}
+                </v-col>
+              </v-row>
+              <v-row dense v-if="playerId in hands">
+                <v-col cols="8">
+                  <h5 @click="() => deal(hands[playerId].id)">手札</h5>
+                  <selectable-bundle
+                    v-model="selectedBundle"
+                    :items="handIndices(playerId)"
+                    :bundleName="hands[playerId].id"
+                  >
+                    <template #item="{value,selected}">
+                      <trump
+                        v-if="
+                          hands[playerId].components &&
+                            hands[playerId].components.length >= value
+                        "
+                        :suit="hands[playerId].components[value].value.suit"
+                        :num="hands[playerId].components[value].value.num"
+                        :selected="selected"
+                      />
+                      <trump v-else :selected="selected" />
+                    </template>
+                  </selectable-bundle>
+                </v-col>
+                <v-col>
+                  <h5 @click="() => deal(openHands[playerId].id)">
+                    公開
+                  </h5>
+                  <selectable-bundle
+                    v-model="selectedBundle"
+                    :items="openHandIndices(playerId)"
+                    :bundleName="openHands[playerId].id"
+                  >
+                    <template #item="{value, selected}">
+                      <trump
+                        v-if="
+                          openHands[playerId].components &&
+                            openHands[playerId].components.length >= value
+                        "
+                        :suit="openHands[playerId].components[value].value.suit"
+                        :num="openHands[playerId].components[value].value.num"
+                        :selected="selected"
+                      />
+                      <trump v-else :selected="selected" />
+                    </template>
+                  </selectable-bundle>
+                </v-col>
+              </v-row>
+            </v-card-text>
+          </v-card>
+        </template>
+      </v-col>
+    </v-row>
     <debug-view>
       <pre>{{ JSON.stringify({ player, room, table }, null, 2) }}</pre>
     </debug-view>
@@ -227,6 +244,9 @@ export default Vue.extend({
         serverAPI: { label: '', version: 1 },
       });
     },
+    getPlayer(playerId: string): PlayerInfo | null {
+      return this.players.find(item => item.playerId === playerId) || null;
+    },
     reset() {
       this.ioApi.reset({ roomName: this.$route.params.roomName });
     },
@@ -264,25 +284,15 @@ export default Vue.extend({
 </script>
 
 <style lang="scss">
-.selected {
-  color: cyan;
-}
 .hand {
   position: relative;
   height: 150px;
   padding: 1em;
-  .card {
-    position: absolute;
-    bottom: 0;
-    @for $i from 0 to 100 {
-      &:nth-child(#{$i}) {
-        left: calc(30px * #{$i});
-      }
-    }
-    &.selected {
-      bottom: 1em;
-      box-shadow: 0px 0px 10px red;
-    }
+}
+.account {
+  color: limegreen !important;
+  &:not(.online) {
+    color: red !important;
   }
 }
 </style>

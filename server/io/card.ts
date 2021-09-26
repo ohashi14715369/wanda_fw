@@ -86,7 +86,6 @@ export interface Room {
 
 const players: Player[] = [];
 const rooms: Room[] = [];
-const roomDestroyTimers: { [roomName: string]: NodeJS.Timeout } = {};
 const tables: {
   [roomName: string]: Table;
 } = {};
@@ -106,7 +105,6 @@ export default function(socket: Socket, io: Server) {
     }
     return room;
   }
-
   function getRoomInfo(roomName: string): Room | null {
     return rooms.find(room => room.name === roomName) || null;
   }
@@ -128,13 +126,11 @@ export default function(socket: Socket, io: Server) {
       }
     });
   }
-
   function syncRoom(roomName: string) {
     const roomInfo = getRoomInfo(roomName);
     console.log('syncRoom', { roomName, socketId, roomInfo });
     sendToRoom(roomName, 'room', roomInfo);
   }
-
   function syncTable(roomName: string) {
     const table = tables[roomName] || null;
     console.log('syncTable', { roomName, socketId, table });
@@ -201,6 +197,7 @@ export default function(socket: Socket, io: Server) {
           rooms.findIndex(item => item.name === room.name),
           1,
         );
+        delete tables[room.name];
         syncRooms();
       }
     },

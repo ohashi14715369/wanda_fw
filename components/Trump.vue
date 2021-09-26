@@ -1,5 +1,5 @@
 <template>
-  <div :class="{ trump: true, backside: !numStr, redSuit: isRed }">
+  <div :class="{ trump: true, backside: !numStr, redSuit: isRed, selected }">
     <v-icon class="suit" v-if="icon" style="color:inherit">{{ icon }}</v-icon>
     <div class="num">{{ numStr }}</div>
   </div>
@@ -11,6 +11,7 @@ export default Vue.extend({
   props: {
     suit: String,
     num: Number,
+    selected: Boolean,
   },
   computed: {
     icon(): string | null {
@@ -50,11 +51,14 @@ export default Vue.extend({
   position: relative;
   border: solid 1px black;
   background-color: white;
-  padding: 0.5em;
+  padding: 0.2em;
   color: black;
   border-radius: 5px;
   width: 40px;
   height: 60px;
+  &.selected {
+    box-shadow: 0 0 5px cyan;
+  }
   &.redSuit {
     color: red;
   }
